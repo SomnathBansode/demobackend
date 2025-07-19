@@ -31,7 +31,6 @@ router.post(
 router.post("/logout", authMiddleware, authController.logout);
 router.post("/request-reset", authController.requestPasswordReset);
 router.post("/reset-password/:token", authController.resetPassword);
-router.post("/reset-password", authController.resetPassword);
 router.get("/verify/:token", authController.verifyEmail);
 router.get("/me", authMiddleware, authController.getMe);
 router.put("/me", authMiddleware, authController.updateMe);
