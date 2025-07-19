@@ -147,7 +147,8 @@ exports.requestPasswordReset = async (req, res) => {
 
 exports.resetPassword = async (req, res) => {
   try {
-    const { token, password } = req.body;
+    const { token } = req.params; // Changed from req.body
+    const { password } = req.body;
     const user = await User.findOne({
       resetToken: token,
       resetTokenExpiry: { $gt: Date.now() },
