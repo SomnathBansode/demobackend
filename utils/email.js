@@ -57,10 +57,41 @@ const resolveFrom = () => {
 // Expose a verifier to catch config issues early
 exports.verifyEmailTransport = async () => {
   try {
-    await transporter.verify();
-    console.log("Email transport verified and ready");
+    const provider =
+      (process.env.EMAIL_PROVIDER || "").toLowerCase() ||
+      (process.env.SENDGRID_API_KEY ? "sendgrid" : "smtp");
+
+    if (provider === "sendgrid") {
+      // Verify SendGrid configuration
+      if (!process.env.SENDGRID_API_KEY) {
+        throw new Error("SendGrid API key is missing");
+      }
+      if (!process.env.SENDGRID_FROM) {
+        throw new Error("SendGrid sender email is not configured");
+      }
+      // Test SendGrid API key validity
+      await sgMail.send({
+        to: process.env.SENDGRID_FROM,
+        from: process.env.SENDGRID_FROM,
+        subject: "Email Transport Verification",
+        text: "This is a test email to verify the transport configuration.",
+        mail_settings: {
+          sandbox_mode: {
+            enable: true, // Prevents the email from actually being sent
+          },
+        },
+      });
+      console.log("SendGrid API verified and ready");
+    } else if (transporter) {
+      // Verify SMTP configuration
+      await transporter.verify();
+      console.log("SMTP transport verified and ready");
+    } else {
+      throw new Error("No email transport configured");
+    }
   } catch (err) {
     console.error("Email transport verification failed:", err.message || err);
+    throw err; // Re-throw to handle it in the calling code
   }
 };
 
