@@ -1,4 +1,10 @@
 const nodemailer = require("nodemailer");
+const sgMail = require("@sendgrid/mail");
+
+// Initialize SendGrid if API key is present
+if (process.env.SENDGRID_API_KEY) {
+  sgMail.setApiKey(process.env.SENDGRID_API_KEY);
+}
 
 // Create a transport that can use SendGrid or SMTP (e.g., Gmail)
 const createTransport = () => {
@@ -8,26 +14,10 @@ const createTransport = () => {
 
   if (provider === "sendgrid") {
     console.log(
-      "Initializing SendGrid transport with API key:",
+      "Using SendGrid API with key:",
       process.env.SENDGRID_API_KEY ? "Present" : "Missing"
     );
-
-    return nodemailer.createTransport({
-      service: "SendGrid",
-      host: "smtp.sendgrid.net",
-      port: 587,
-      secure: false,
-      auth: {
-        user: "apikey",
-        pass: process.env.SENDGRID_API_KEY,
-      },
-      tls: {
-        rejectUnauthorized: false,
-      },
-      connectionTimeout: 30000, // 30 seconds
-      greetingTimeout: 30000,
-      socketTimeout: 60000,
-    });
+    return null; // We'll use SendGrid API directly
   }
 
   // Default to generic SMTP (works with Gmail)
@@ -78,10 +68,13 @@ exports.verifyEmailTransport = async () => {
 const sendEmail = async (to, subject, html, unsubscribeLink) => {
   try {
     const from = resolveFrom();
+    const provider =
+      (process.env.EMAIL_PROVIDER || "").toLowerCase() ||
+      (process.env.SENDGRID_API_KEY ? "sendgrid" : "smtp");
+
     console.log("Email configuration:", {
-      provider: process.env.EMAIL_PROVIDER || "default",
+      provider,
       from,
-      smtpHost: process.env.SMTP_HOST || process.env.SENDGRID_SMTP_HOST,
       hasApiKey: !!process.env.SENDGRID_API_KEY,
     });
 
@@ -95,7 +88,13 @@ const sendEmail = async (to, subject, html, unsubscribeLink) => {
       },
     };
 
-    await transporter.sendMail(mailOptions);
+    if (provider === "sendgrid" && process.env.SENDGRID_API_KEY) {
+      // Use SendGrid API directly
+      await sgMail.send(mailOptions);
+    } else {
+      // Fallback to nodemailer
+      await transporter.sendMail(mailOptions);
+    }
     console.log(`Email sent to ${to}: ${subject}`);
   } catch (error) {
     console.error("Detailed email error:", {
