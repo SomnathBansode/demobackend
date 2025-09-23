@@ -7,20 +7,26 @@ const createTransport = () => {
     (process.env.SENDGRID_API_KEY ? "sendgrid" : "smtp");
 
   if (provider === "sendgrid") {
+    console.log(
+      "Initializing SendGrid transport with API key:",
+      process.env.SENDGRID_API_KEY ? "Present" : "Missing"
+    );
+
     return nodemailer.createTransport({
-      host: process.env.SENDGRID_SMTP_HOST || "smtp.sendgrid.net",
-      port: Number(process.env.SENDGRID_SMTP_PORT || 587),
+      service: "SendGrid",
+      host: "smtp.sendgrid.net",
+      port: 587,
       secure: false,
       auth: {
-        user: process.env.SENDGRID_SMTP_USER || "apikey", // required literal for SendGrid
+        user: "apikey",
         pass: process.env.SENDGRID_API_KEY,
       },
-      pool: true,
-      maxConnections: Number(process.env.SMTP_MAX_CONNECTIONS || 3),
-      maxMessages: Number(process.env.SMTP_MAX_MESSAGES || 50),
-      connectionTimeout: Number(process.env.SMTP_CONNECTION_TIMEOUT || 10000),
-      greetingTimeout: Number(process.env.SMTP_GREETING_TIMEOUT || 10000),
-      socketTimeout: Number(process.env.SMTP_SOCKET_TIMEOUT || 20000),
+      tls: {
+        rejectUnauthorized: false,
+      },
+      connectionTimeout: 30000, // 30 seconds
+      greetingTimeout: 30000,
+      socketTimeout: 60000,
     });
   }
 
