@@ -1,31 +1,24 @@
 const nodemailer = require("nodemailer");
 
-// Configurable SMTP transport suitable for Render
+// Create transporter using SendGrid
 const transporter = nodemailer.createTransport({
-  host: process.env.SMTP_HOST || "smtp.gmail.com",
-  port: Number(process.env.SMTP_PORT || 587),
-  secure:
-    process.env.SMTP_SECURE === "true" || process.env.SMTP_PORT === "465",
+  host: "smtp.sendgrid.net",
+  port: 587,
+  secure: false, // true for port 465, false for 587
   auth: {
-    user: process.env.SMTP_USER || process.env.GMAIL_USER,
-    pass: process.env.SMTP_PASS || process.env.GMAIL_APP_PASSWORD,
+    user: "apikey", // Must be "apikey"
+    pass: process.env.SENDGRID_API_KEY, // Your SendGrid API Key
   },
-  pool: true,
-  maxConnections: Number(process.env.SMTP_MAX_CONNECTIONS || 3),
-  maxMessages: Number(process.env.SMTP_MAX_MESSAGES || 50),
-  connectionTimeout: Number(process.env.SMTP_CONNECTION_TIMEOUT || 10000),
-  greetingTimeout: Number(process.env.SMTP_GREETING_TIMEOUT || 10000),
-  socketTimeout: Number(process.env.SMTP_SOCKET_TIMEOUT || 20000),
 });
 
+// Generic function to send email
 const sendEmail = async (to, subject, html, unsubscribeLink) => {
   try {
     const mailOptions = {
-      from: `"Online Test Platform" <${process.env.GMAIL_USER}>`,
+      from: process.env.SENDGRID_FROM,
       to,
       subject,
       html,
-      replyTo: process.env.GMAIL_USER,
       headers: {
         "List-Unsubscribe": `<${unsubscribeLink}>`,
       },
@@ -39,37 +32,20 @@ const sendEmail = async (to, subject, html, unsubscribeLink) => {
   }
 };
 
+// Verification Email
 exports.sendVerificationEmail = async (to, token, userName = "User") => {
   const verificationUrl = `${process.env.FRONTEND_URL}/auth/verify/${token}`;
   const unsubscribeUrl = `${
     process.env.FRONTEND_URL
   }/unsubscribe?email=${encodeURIComponent(to)}`;
   const html = `
-    <!DOCTYPE html>
-    <html>
-      <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <style>
-          body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-          .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-          .button { display: inline-block; padding: 10px 20px; background-color: #4CAF50; color: white; text-decoration: none; border-radius: 5px; }
-          .footer { font-size: 12px; color: #777; margin-top: 20px; }
-        </style>
-      </head>
-      <body>
-        <div class="container">
-          <h2>Welcome, ${userName}!</h2>
-          <p>Thank you for registering with Online Test Platform. Please verify your email address to activate your account:</p>
-          <p><a href="${verificationUrl}" class="button">Verify Email</a></p>
-          <p>This link will expire in 24 hours.</p>
-          <div class="footer">
-            <p>If you did not create this account, you can ignore this email or <a href="${unsubscribeUrl}">unsubscribe</a>.</p>
-            <p>© ${new Date().getFullYear()} Online Test Platform. All rights reserved.</p>
-          </div>
-        </div>
-      </body>
-    </html>
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+      <h2>Welcome, ${userName}!</h2>
+      <p>Thank you for registering. Please verify your email address:</p>
+      <p><a href="${verificationUrl}" style="padding: 10px 20px; background-color: #4CAF50; color: white; text-decoration: none; border-radius: 5px;">Verify Email</a></p>
+      <p>This link will expire in 24 hours.</p>
+      <p>If you did not create this account, ignore this email or <a href="${unsubscribeUrl}">unsubscribe</a>.</p>
+    </div>
   `;
 
   await sendEmail(
@@ -80,37 +56,20 @@ exports.sendVerificationEmail = async (to, token, userName = "User") => {
   );
 };
 
+// Password Reset Email
 exports.sendResetEmail = async (to, token, userName = "User") => {
   const resetUrl = `${process.env.FRONTEND_URL}/auth/reset-password/${token}`;
   const unsubscribeUrl = `${
     process.env.FRONTEND_URL
   }/unsubscribe?email=${encodeURIComponent(to)}`;
   const html = `
-    <!DOCTYPE html>
-    <html>
-      <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <style>
-          body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-          .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-          .button { display: inline-block; padding: 10px 20px; background-color: #4CAF50; color: white; text-decoration: none; border-radius: 5px; }
-          .footer { font-size: 12px; color: #777; margin-top: 20px; }
-        </style>
-      </head>
-      <body>
-        <div class="container">
-          <h2>Reset Your Password, ${userName}</h2>
-          <p>We received a request to reset your password for Online Test Platform. Click the button below to set a new password:</p>
-          <p><a href="${resetUrl}" class="button">Reset Password</a></p>
-          <p>This link will expire in 1 hour.</p>
-          <div class="footer">
-            <p>If you did not request a password reset, you can ignore this email or <a href="${unsubscribeUrl}">unsubscribe</a>.</p>
-            <p>© ${new Date().getFullYear()} Online Test Platform. All rights reserved.</p>
-          </div>
-        </div>
-      </body>
-    </html>
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+      <h2>Reset Your Password, ${userName}</h2>
+      <p>We received a request to reset your password. Click below to set a new password:</p>
+      <p><a href="${resetUrl}" style="padding: 10px 20px; background-color: #4CAF50; color: white; text-decoration: none; border-radius: 5px;">Reset Password</a></p>
+      <p>This link will expire in 1 hour.</p>
+      <p>If you did not request a password reset, ignore this email or <a href="${unsubscribeUrl}">unsubscribe</a>.</p>
+    </div>
   `;
 
   await sendEmail(
@@ -121,34 +80,18 @@ exports.sendResetEmail = async (to, token, userName = "User") => {
   );
 };
 
+// Login Success Email
 exports.sendLoginSuccessEmail = async (to, userName = "User") => {
   const unsubscribeUrl = `${
     process.env.FRONTEND_URL
   }/unsubscribe?email=${encodeURIComponent(to)}`;
   const html = `
-    <!DOCTYPE html>
-    <html>
-      <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <style>
-          body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-          .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-          .footer { font-size: 12px; color: #777; margin-top: 20px; }
-        </style>
-      </head>
-      <body>
-        <div class="container">
-          <h2>Login Successful, ${userName}!</h2>
-          <p>You have successfully logged in to your Online Test Platform account.</p>
-          <p>If this was not you, please secure your account by resetting your password.</p>
-          <div class="footer">
-            <p><a href="${unsubscribeUrl}">Unsubscribe</a> from these notifications.</p>
-            <p>© ${new Date().getFullYear()} Online Test Platform. All rights reserved.</p>
-          </div>
-        </div>
-      </body>
-    </html>
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+      <h2>Login Successful, ${userName}!</h2>
+      <p>You have successfully logged in to your account.</p>
+      <p>If this wasn't you, secure your account by resetting your password.</p>
+      <p><a href="${unsubscribeUrl}">Unsubscribe</a> from these notifications.</p>
+    </div>
   `;
 
   await sendEmail(
@@ -159,34 +102,17 @@ exports.sendLoginSuccessEmail = async (to, userName = "User") => {
   );
 };
 
+// Password Reset Success Email
 exports.sendPasswordResetSuccessEmail = async (to, userName = "User") => {
   const unsubscribeUrl = `${
     process.env.FRONTEND_URL
   }/unsubscribe?email=${encodeURIComponent(to)}`;
   const html = `
-    <!DOCTYPE html>
-    <html>
-      <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <style>
-          body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-          .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-          .footer { font-size: 12px; color: #777; margin-top: 20px; }
-        </style>
-      </head>
-      <body>
-        <div class="container">
-          <h2>Password Reset Successful, ${userName}!</h2>
-          <p>Your password for Online Test Platform has been reset successfully.</p>
-          <p>You can now log in with your new password.</p>
-          <div class="footer">
-            <p><a href="${unsubscribeUrl}">Unsubscribe</a> from these notifications.</p>
-            <p>© ${new Date().getFullYear()} Online Test Platform. All rights reserved.</p>
-          </div>
-        </div>
-      </body>
-    </html>
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+      <h2>Password Reset Successful, ${userName}!</h2>
+      <p>Your password has been reset successfully. You can now log in with your new password.</p>
+      <p><a href="${unsubscribeUrl}">Unsubscribe</a> from these notifications.</p>
+    </div>
   `;
 
   await sendEmail(
