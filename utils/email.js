@@ -71,8 +71,16 @@ exports.verifyEmailTransport = async () => {
 // Generic function to send email
 const sendEmail = async (to, subject, html, unsubscribeLink) => {
   try {
+    const from = resolveFrom();
+    console.log("Email configuration:", {
+      provider: process.env.EMAIL_PROVIDER || "default",
+      from,
+      smtpHost: process.env.SMTP_HOST || process.env.SENDGRID_SMTP_HOST,
+      hasApiKey: !!process.env.SENDGRID_API_KEY,
+    });
+
     const mailOptions = {
-      from: resolveFrom(),
+      from,
       to,
       subject,
       html,
@@ -84,7 +92,13 @@ const sendEmail = async (to, subject, html, unsubscribeLink) => {
     await transporter.sendMail(mailOptions);
     console.log(`Email sent to ${to}: ${subject}`);
   } catch (error) {
-    console.error(`Failed to send email to ${to}:`, error);
+    console.error("Detailed email error:", {
+      message: error.message,
+      code: error.code,
+      command: error.command,
+      responseCode: error.responseCode,
+      response: error.response,
+    });
     throw new Error(`Email sending failed: ${error.message}`);
   }
 };
