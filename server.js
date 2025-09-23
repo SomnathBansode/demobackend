@@ -50,16 +50,35 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // Enhanced CORS Configuration
-// Enhanced CORS Configuration
+const defaultOrigins = [
+  "http://localhost:5173",
+  "http://localhost:3000",
+  "https://nexlearn.netlify.app",
+  "https://nexlearndemo.netlify.app",
+];
+// Include FRONTEND_URL automatically (trim trailing slash)
+const envFrontend = (process.env.FRONTEND_URL || "").replace(/\/$/, "");
+const envOrigins = (process.env.CORS_ORIGINS || "")
+  .split(",")
+  .map((o) => o.trim())
+  .filter(Boolean);
+const allowedOrigins = Array.from(
+  new Set([
+    ...defaultOrigins,
+    ...envOrigins,
+    ...(envFrontend ? [envFrontend] : []),
+  ])
+);
+
 const corsOptions = {
-  origin: [
-    "http://localhost:5173",
-    "https://nexlearn.netlify.app",
-    "https://nexlearndemo.netlify.app",
-  ],
+  origin: (origin, callback) => {
+    // Allow non-browser requests (no Origin header) and whitelisted origins
+    if (!origin || allowedOrigins.includes(origin)) return callback(null, true);
+    return callback(new Error(`Not allowed by CORS: ${origin}`));
+  },
   credentials: true,
   methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-  allowedHeaders: ["Content-Type", "Authorization"],
+  // Let cors library reflect requested headers automatically
   optionsSuccessStatus: 200,
 };
 
