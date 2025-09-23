@@ -1,21 +1,78 @@
 const nodemailer = require("nodemailer");
 
-// Create transporter using SendGrid
-const transporter = nodemailer.createTransport({
-  host: "smtp.sendgrid.net",
-  port: 587,
-  secure: false, // true for port 465, false for 587
-  auth: {
-    user: "apikey", // Must be "apikey"
-    pass: process.env.SENDGRID_API_KEY, // Your SendGrid API Key
-  },
-});
+// Create a transport that can use SendGrid or SMTP (e.g., Gmail)
+const createTransport = () => {
+  const provider =
+    (process.env.EMAIL_PROVIDER || "").toLowerCase() ||
+    (process.env.SENDGRID_API_KEY ? "sendgrid" : "smtp");
+
+  if (provider === "sendgrid") {
+    return nodemailer.createTransport({
+      host: process.env.SENDGRID_SMTP_HOST || "smtp.sendgrid.net",
+      port: Number(process.env.SENDGRID_SMTP_PORT || 587),
+      secure: false,
+      auth: {
+        user: process.env.SENDGRID_SMTP_USER || "apikey", // required literal for SendGrid
+        pass: process.env.SENDGRID_API_KEY,
+      },
+      pool: true,
+      maxConnections: Number(process.env.SMTP_MAX_CONNECTIONS || 3),
+      maxMessages: Number(process.env.SMTP_MAX_MESSAGES || 50),
+      connectionTimeout: Number(process.env.SMTP_CONNECTION_TIMEOUT || 10000),
+      greetingTimeout: Number(process.env.SMTP_GREETING_TIMEOUT || 10000),
+      socketTimeout: Number(process.env.SMTP_SOCKET_TIMEOUT || 20000),
+    });
+  }
+
+  // Default to generic SMTP (works with Gmail)
+  return nodemailer.createTransport({
+    host: process.env.SMTP_HOST || "smtp.gmail.com",
+    port: Number(process.env.SMTP_PORT || 587),
+    secure:
+      process.env.SMTP_SECURE === "true" || process.env.SMTP_PORT === "465",
+    auth: {
+      user: process.env.SMTP_USER || process.env.GMAIL_USER,
+      pass: process.env.SMTP_PASS || process.env.GMAIL_APP_PASSWORD,
+    },
+    pool: true,
+    maxConnections: Number(process.env.SMTP_MAX_CONNECTIONS || 3),
+    maxMessages: Number(process.env.SMTP_MAX_MESSAGES || 50),
+    connectionTimeout: Number(process.env.SMTP_CONNECTION_TIMEOUT || 10000),
+    greetingTimeout: Number(process.env.SMTP_GREETING_TIMEOUT || 10000),
+    socketTimeout: Number(process.env.SMTP_SOCKET_TIMEOUT || 20000),
+  });
+};
+
+const transporter = createTransport();
+
+// Determine From address
+const resolveFrom = () => {
+  const explicit = process.env.MAIL_FROM || process.env.SMTP_FROM;
+  const sendgridFrom = process.env.SENDGRID_FROM;
+  const smtpUser = process.env.SMTP_USER || process.env.GMAIL_USER;
+  const email = explicit || sendgridFrom || smtpUser;
+  return email
+    ? email.includes("<")
+      ? email
+      : `"Online Test Platform" <${email}>`
+    : undefined;
+};
+
+// Expose a verifier to catch config issues early
+exports.verifyEmailTransport = async () => {
+  try {
+    await transporter.verify();
+    console.log("Email transport verified and ready");
+  } catch (err) {
+    console.error("Email transport verification failed:", err.message || err);
+  }
+};
 
 // Generic function to send email
 const sendEmail = async (to, subject, html, unsubscribeLink) => {
   try {
     const mailOptions = {
-      from: process.env.SENDGRID_FROM,
+      from: resolveFrom(),
       to,
       subject,
       html,

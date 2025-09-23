@@ -146,6 +146,13 @@ app.use((err, req, res, next) => {
 const startServer = async () => {
   await connectDB();
   await initializeGridFS();
+  // Verify email transport once at startup for clearer diagnostics
+  try {
+    const { verifyEmailTransport } = require("./utils/email");
+    if (verifyEmailTransport) await verifyEmailTransport();
+  } catch (e) {
+    console.error("Email transport init check failed:", e?.message || e);
+  }
 
   const PORT = process.env.PORT || 5000;
   const server = app.listen(PORT, () => {
