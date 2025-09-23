@@ -93,7 +93,10 @@ exports.login = async (req, res) => {
       maxAge: 7 * 24 * 60 * 60 * 1000,
     });
 
-    await sendLoginSuccessEmail(user.email, user.name);
+    // Send login notification email without blocking the response
+    sendLoginSuccessEmail(user.email, user.name).catch((err) =>
+      console.error("Login email failed:", err)
+    );
 
     res.json({
       token,

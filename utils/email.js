@@ -1,14 +1,21 @@
 const nodemailer = require("nodemailer");
 
+// Configurable SMTP transport suitable for Render
 const transporter = nodemailer.createTransport({
-  service: "Gmail",
+  host: process.env.SMTP_HOST || "smtp.gmail.com",
+  port: Number(process.env.SMTP_PORT || 587),
+  secure:
+    process.env.SMTP_SECURE === "true" || process.env.SMTP_PORT === "465",
   auth: {
-    user: process.env.GMAIL_USER,
-    pass: process.env.GMAIL_APP_PASSWORD,
+    user: process.env.SMTP_USER || process.env.GMAIL_USER,
+    pass: process.env.SMTP_PASS || process.env.GMAIL_APP_PASSWORD,
   },
-  tls: {
-    rejectUnauthorized: false, // Adjust for production
-  },
+  pool: true,
+  maxConnections: Number(process.env.SMTP_MAX_CONNECTIONS || 3),
+  maxMessages: Number(process.env.SMTP_MAX_MESSAGES || 50),
+  connectionTimeout: Number(process.env.SMTP_CONNECTION_TIMEOUT || 10000),
+  greetingTimeout: Number(process.env.SMTP_GREETING_TIMEOUT || 10000),
+  socketTimeout: Number(process.env.SMTP_SOCKET_TIMEOUT || 20000),
 });
 
 const sendEmail = async (to, subject, html, unsubscribeLink) => {
