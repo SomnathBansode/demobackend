@@ -56,7 +56,6 @@ const defaultOrigins = [
   "https://nexlearn.netlify.app",
   "https://nexlearndemo.netlify.app",
 ];
-// Include FRONTEND_URL automatically (trim trailing slash)
 const envFrontend = (process.env.FRONTEND_URL || "").replace(/\/$/, "");
 const envOrigins = (process.env.CORS_ORIGINS || "")
   .split(",")
@@ -72,13 +71,11 @@ const allowedOrigins = Array.from(
 
 const corsOptions = {
   origin: (origin, callback) => {
-    // Allow non-browser requests (no Origin header) and whitelisted origins
     if (!origin || allowedOrigins.includes(origin)) return callback(null, true);
     return callback(new Error(`Not allowed by CORS: ${origin}`));
   },
   credentials: true,
   methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-  // Let cors library reflect requested headers automatically
   optionsSuccessStatus: 200,
 };
 
@@ -106,7 +103,7 @@ app.post("/api/upload", upload.single("file"), async (req, res) => {
   }
 });
 
-// API Routes - Add error handling for route imports
+// API Routes
 try {
   app.use("/api/tests", testRoutes);
   app.use("/api/auth", authRoutes);
@@ -121,6 +118,15 @@ try {
   console.error("Route initialization error:", err);
   process.exit(1);
 }
+
+// Root route (for keepalive + quick status)
+app.get("/", (req, res) => {
+  res.status(200).json({
+    status: "OK",
+    service: "NexLearn API",
+    timestamp: new Date().toISOString(),
+  });
+});
 
 // Health check endpoint
 app.get("/api/health", (req, res) => {
@@ -146,7 +152,7 @@ app.use((err, req, res, next) => {
 const startServer = async () => {
   await connectDB();
   await initializeGridFS();
-  // Verify email transport once at startup for clearer diagnostics
+
   try {
     const { verifyEmailTransport } = require("./utils/email");
     if (verifyEmailTransport) await verifyEmailTransport();
@@ -159,6 +165,68 @@ const startServer = async () => {
     console.log(`Server running on port ${PORT}`);
     console.log(`Environment: ${process.env.NODE_ENV || "development"}`);
     console.log(`Version: ${process.env.npm_package_version}`);
+
+    // --- Keepalive pinger ---
+    try {
+      const baseUrl = (
+        process.env.RENDER_EXTERNAL_URL || `http://localhost:${PORT}`
+      ).replace(/\/$/, "");
+      const minMinutes = 13;
+      const maxMinutes = 15;
+
+      const ping = async () => {
+        const target = `${baseUrl}/?ping=${Date.now()}`;
+        try {
+          if (typeof fetch === "function") {
+            const res = await fetch(target, {
+              method: "GET",
+              cache: "no-store",
+              headers: {
+                "Cache-Control":
+                  "no-store, no-cache, max-age=0, must-revalidate",
+                Pragma: "no-cache",
+                "User-Agent": "keepalive/1.0",
+              },
+            });
+            if (!res.ok) throw new Error(`status ${res.status}`);
+          } else {
+            const https = require("https");
+            await new Promise((resolve, reject) => {
+              const req = https.get(target, (res) => {
+                const ok =
+                  (res.statusCode || 0) >= 200 && (res.statusCode || 0) < 300;
+                if (!ok) reject(new Error(`status ${res.statusCode}`));
+                else resolve();
+                res.resume();
+              });
+              req.on("error", reject);
+            });
+          }
+        } catch (err) {
+          console.warn("Keepalive ping failed:", err.message);
+        }
+      };
+
+      const nextDelayMs = () => {
+        const minMs = minMinutes * 60 * 1000;
+        const maxMs = maxMinutes * 60 * 1000;
+        return Math.floor(minMs + Math.random() * (maxMs - minMs));
+      };
+
+      ping(); // initial ping
+      (function scheduleNext() {
+        setTimeout(async () => {
+          await ping();
+          scheduleNext();
+        }, nextDelayMs());
+      })();
+
+      console.log(
+        `Keepalive enabled: pinging ${baseUrl}/ every ${minMinutes}-${maxMinutes} minutes`
+      );
+    } catch (e) {
+      console.warn("Keepalive setup skipped:", e.message);
+    }
   });
 
   // Graceful shutdown
