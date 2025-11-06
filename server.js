@@ -54,6 +54,7 @@ const defaultOrigins = [
   "http://localhost:5173",
   "http://localhost:3000",
   "https://nexlearn.netlify.app",
+    "https://nex-learn.netlify.app",
   "https://nexlearndemo.netlify.app",
 ];
 const envFrontend = (process.env.FRONTEND_URL || "").replace(/\/$/, "");
