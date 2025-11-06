@@ -56,6 +56,7 @@ const defaultOrigins = [
   "https://nexlearn.netlify.app",
     "https://nex-learn.netlify.app",
   "https://nexlearndemo.netlify.app",
+  "https://nexlearnoriginal.netlify.app",
 ];
 const envFrontend = (process.env.FRONTEND_URL || "").replace(/\/$/, "");
 const envOrigins = (process.env.CORS_ORIGINS || "")
